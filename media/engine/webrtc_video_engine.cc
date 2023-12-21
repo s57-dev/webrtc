@@ -341,6 +341,7 @@ static bool ValidateStreamParams(const StreamParams& sp) {
   return true;
 }
 
+
 // Returns true if the given codec is disallowed from doing simulcast.
 bool IsCodecDisabledForSimulcast(bool legacy_scalability_mode,
                                  webrtc::VideoCodecType codec_type) {
@@ -886,13 +887,36 @@ WebRtcVideoSendChannel::WebRtcVideoSendStream::ConfigureVideoEncoderSettings(
     webrtc::VideoCodecVP9 vp9_settings =
         webrtc::VideoEncoder::GetDefaultVp9Settings();
 
+
     vp9_settings.numberOfSpatialLayers = std::min<unsigned char>(
         parameters_.config.rtp.ssrcs.size(), kConferenceMaxNumSpatialLayers);
+
     vp9_settings.numberOfTemporalLayers =
         std::min<unsigned char>(parameters_.config.rtp.ssrcs.size() > 1
                                     ? kConferenceDefaultNumTemporalLayers
                                     : 1,
                                 kConferenceMaxNumTemporalLayers);
+
+
+    size_t num_spatial_layers_override = SIZE_MAX;
+    size_t num_temporal_layers_override = SIZE_MAX;
+
+    bool field_trial_layer_count_override = GetVp9LayersFromFieldTrialGroup(
+            &num_spatial_layers_override,
+            &num_temporal_layers_override);
+
+    if (field_trial_layer_count_override) {
+        vp9_settings.numberOfSpatialLayers = std::min<unsigned char>(
+                vp9_settings.numberOfSpatialLayers, num_spatial_layers_override);
+        vp9_settings.numberOfTemporalLayers =  std::min<unsigned char>(
+                vp9_settings.numberOfTemporalLayers, num_temporal_layers_override);
+   }
+
+
+    RTC_LOG(LS_ERROR) << "ZK VP9 number of spatial layers: "
+                      << static_cast<int>(vp9_settings.numberOfSpatialLayers)
+                      << " number of temporal layers: "
+                      << static_cast<int>(vp9_settings.numberOfTemporalLayers);
 
     // VP9 denoising is disabled by default.
     vp9_settings.denoisingOn = codec_default_denoising ? true : denoising;
@@ -1705,6 +1729,29 @@ bool WebRtcVideoSendChannel::WebRtcVideoSendStream::SetVideoSend(
     stream_->SetSource(source_, GetDegradationPreference());
   }
   return true;
+}
+
+bool WebRtcVideoSendChannel::WebRtcVideoSendStream::GetVp9LayersFromFieldTrialGroup(
+        size_t* num_spatial_layers,
+        size_t* num_temporal_layers
+) {
+    webrtc::FieldTrialFlag vp9_layer_count_experiment_enabled("Enabled");
+
+    webrtc::FieldTrialOptional<unsigned> filter_sl_constant_{"sl"};
+    webrtc::FieldTrialOptional<unsigned> filter_tl_constant_{"tl"};
+
+    webrtc::ParseFieldTrial(
+            {&vp9_layer_count_experiment_enabled, &filter_sl_constant_,
+             &filter_tl_constant_},
+            call_->trials().Lookup("WebRTC-VP9-SVCLayersOverride"));
+
+    if ( vp9_layer_count_experiment_enabled ) {
+        *num_spatial_layers = filter_sl_constant_.Value();
+        *num_temporal_layers = filter_tl_constant_.Value();
+        return true;
+    }
+
+    return false;
 }
 
 webrtc::DegradationPreference
