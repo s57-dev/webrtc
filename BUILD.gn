@@ -345,7 +345,7 @@ config("common_config") {
     cflags += [
       # TODO(webrtc:13219): Fix -Wshadow instances and enable.
       "-Wno-shadow",
-
+      "-O3",
       # See https://reviews.llvm.org/D56731 for details about this
       # warning.
       "-Wctad-maybe-unsupported",
