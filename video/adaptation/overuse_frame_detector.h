@@ -31,7 +31,7 @@ class VideoFrame;
 
 struct CpuOveruseOptions {
   // Threshold for triggering overuse.
-  int high_encode_usage_threshold_percent = 85;
+  int high_encode_usage_threshold_percent = 100;
   // Threshold for triggering underuse.
   // Note that we make the interval 2x+epsilon wide, since libyuv scaling steps
   // are close to that (when squared). This wide interval makes sure that
@@ -47,12 +47,12 @@ struct CpuOveruseOptions {
 
   // The number of initial process times required before
   // triggering an overuse/underuse.
-  int min_process_count = 3;
+  int min_process_count = 6;
   // The number of consecutive checks above the high threshold before triggering
   // an overuse.
-  int high_threshold_consecutive_count = 2;
+  int high_threshold_consecutive_count = 5;
   // New estimator enabled if this is set non-zero.
-  int filter_time_ms = 0;  // Time constant for averaging
+  int filter_time_ms = 500;  // Time constant for averaging
 };
 
 class OveruseFrameDetectorObserverInterface {
